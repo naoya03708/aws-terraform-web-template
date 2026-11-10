@@ -6,6 +6,7 @@ single_nat_gateway = false
 task_cpu           = 512
 task_memory        = 1024
 desired_count      = 2
+max_capacity       = 6
 log_retention_days = 30
 
 db_instance_class        = "db.t4g.small"
@@ -14,3 +15,8 @@ db_multi_az              = true
 db_backup_retention_days = 7
 
 deletion_protection = true
+enable_waf          = true
+
+# 本番は HTTPS を推奨。ドメインと Route53 ホストゾーンを用意して設定する
+# domain_name     = "app.example.com"
+# route53_zone_id = "Z0123456789ABC"

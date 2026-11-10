@@ -6,6 +6,7 @@ single_nat_gateway = true
 task_cpu           = 256
 task_memory        = 512
 desired_count      = 1
+max_capacity       = 2
 log_retention_days = 7
 
 db_instance_class        = "db.t4g.micro"
@@ -14,3 +15,8 @@ db_multi_az              = false
 db_backup_retention_days = 1
 
 deletion_protection = false
+enable_waf          = false
+
+# HTTPS を有効化する場合のみ設定（ドメインと Route53 ホストゾーンが必要）
+# domain_name     = "dev.example.com"
+# route53_zone_id = "Z0123456789ABC"
