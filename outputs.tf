@@ -8,6 +8,11 @@ output "alb_dns_name" {
   value       = module.ecs.alb_dns_name
 }
 
+output "dashboard_name" {
+  description = "CloudWatch ダッシュボード名（SLO 達成状況）"
+  value       = module.monitoring.dashboard_name
+}
+
 output "ecs_cluster_name" {
   description = "ECS クラスター名"
   value       = module.ecs.cluster_name

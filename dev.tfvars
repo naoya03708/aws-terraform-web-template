@@ -20,3 +20,6 @@ enable_waf          = false
 # HTTPS を有効化する場合のみ設定（ドメインと Route53 ホストゾーンが必要）
 # domain_name     = "dev.example.com"
 # route53_zone_id = "Z0123456789ABC"
+
+# アラーム通知先（SNS メール購読。指定しない場合は購読を作成しない）
+# alarm_email = "you@example.com"

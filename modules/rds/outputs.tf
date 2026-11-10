@@ -17,3 +17,8 @@ output "master_user_secret_arn" {
   description = "マスター認証情報の Secrets Manager ARN"
   value       = aws_db_instance.this.master_user_secret[0].secret_arn
 }
+
+output "identifier" {
+  description = "RDS インスタンス識別子（CloudWatch ディメンション用）"
+  value       = aws_db_instance.this.identifier
+}
