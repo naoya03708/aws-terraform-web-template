@@ -64,6 +64,29 @@ variable "desired_count" {
   type        = number
 }
 
+variable "max_capacity" {
+  description = "オートスケール時の最大タスク数（最小は desired_count）"
+  type        = number
+}
+
+variable "domain_name" {
+  description = "アプリの FQDN。指定すると ACM + HTTPS を有効化（null は HTTP のみ）"
+  type        = string
+  default     = null
+}
+
+variable "route53_zone_id" {
+  description = "domain_name を含む Route53 ホストゾーン ID（domain_name 指定時は必須）"
+  type        = string
+  default     = null
+}
+
+variable "enable_waf" {
+  description = "ALB に AWS マネージドルールの WAF を関連付けるか"
+  type        = bool
+  default     = false
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logs の保持日数"
   type        = number
