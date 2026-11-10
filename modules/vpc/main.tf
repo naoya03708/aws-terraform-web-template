@@ -2,6 +2,8 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_region" "current" {}
+
 locals {
   azs       = slice(data.aws_availability_zones.available.names, 0, var.az_count)
   nat_count = var.single_nat_gateway ? 1 : var.az_count
@@ -106,4 +108,14 @@ resource "aws_route_table_association" "private" {
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
+}
+
+# S3 ゲートウェイエンドポイント（無料）。ECR のイメージレイヤ取得が NAT を経由せず、NAT 通信料を削減する
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = aws_route_table.private[*].id
+
+  tags = { Name = "${var.name}-s3" }
 }

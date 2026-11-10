@@ -74,9 +74,18 @@ ENV=prod terragrunt plan
 
 > ⚠️ `apply` すると NAT Gateway / ALB / RDS など課金されるリソースが作成されます。検証後は `ENV=dev terragrunt destroy` で削除してください。
 
-### 3. 注意点
+### 3. 本番向けの機能（tfvars で切替）
 
-- ALB は HTTP(80) のみです。本番利用時は ACM 証明書 + HTTPS リスナーを追加してください。
+| 機能 | 変数 | 内容 |
+| --- | --- | --- |
+| HTTPS | `domain_name` / `route53_zone_id` | 指定時のみ ACM 証明書（DNS 検証）+ 443 リスナー + 80→443 リダイレクト + Route53 エイリアス。未指定なら ALB への HTTP のみ |
+| オートスケール | `desired_count`（最小）/ `max_capacity` | ECS サービスを CPU 60% 目標で増減（target tracking） |
+| WAF | `enable_waf` | AWS マネージドルール（Common / KnownBadInputs / IP Reputation）を ALB に関連付け。prod は `true` |
+| S3 エンドポイント | 常時有効 | S3 ゲートウェイエンドポイント（無料）で ECR レイヤ取得の NAT 通信料を削減 |
+
+### 4. 注意点
+
+- `domain_name` 未指定時は HTTP(80) のみです。公開する本番環境では必ずドメインを設定して HTTPS 化してください。
 - 既定のコンテナイメージは `public.ecr.aws/nginx/nginx:stable` です。`container_image` を変更してアプリに差し替えます。
 
 ## CI/CD（トランクベース開発）

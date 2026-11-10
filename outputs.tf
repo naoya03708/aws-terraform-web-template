@@ -1,3 +1,8 @@
+output "app_url" {
+  description = "アプリの URL（ドメイン指定時は HTTPS）"
+  value       = module.ecs.app_url
+}
+
 output "alb_dns_name" {
   description = "ALB の DNS 名（HTTP でアクセス可能）"
   value       = module.ecs.alb_dns_name

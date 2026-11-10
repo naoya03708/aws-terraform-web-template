@@ -49,6 +49,34 @@ variable "desired_count" {
   type        = number
 }
 
+variable "max_capacity" {
+  description = "オートスケール時の最大タスク数（最小は desired_count）"
+  type        = number
+}
+
+variable "cpu_target_utilization" {
+  description = "オートスケールの CPU 使用率目標(%)"
+  type        = number
+  default     = 60
+}
+
+variable "domain_name" {
+  description = "アプリの FQDN。指定すると ACM 証明書 + HTTPS を有効化する（null の場合は HTTP のみ）"
+  type        = string
+  default     = null
+}
+
+variable "route53_zone_id" {
+  description = "domain_name を含む Route53 ホストゾーン ID（domain_name 指定時は必須）"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.domain_name == null || var.route53_zone_id != null
+    error_message = "domain_name を指定する場合は route53_zone_id も指定してください。"
+  }
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logs の保持日数"
   type        = number

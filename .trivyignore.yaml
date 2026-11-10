@@ -8,7 +8,7 @@ misconfigurations:
   - id: AWS-0054
     paths:
       - "modules/ecs/main.tf"
-    statement: "ドメイン未指定の検証用構成では HTTP のみ。HTTPS 対応（ACM + 443 リスナー）は PR 2 で追加し、その時点でこの除外を削除する。"
+    statement: "domain_name 未指定の検証用構成（dev の既定）では HTTP のみ。domain_name 指定時は ACM + 443 リスナーで HTTPS 化し、80 は 443 へリダイレクトする（tests/ecs.tftest.hcl で検証）。"
 
   - id: AWS-0104
     paths:

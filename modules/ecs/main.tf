@@ -1,5 +1,10 @@
 data "aws_region" "current" {}
 
+locals {
+  # ドメイン指定時のみ HTTPS 化（ACM + 443 リスナー + 80→443 リダイレクト）
+  enable_https = var.domain_name != null
+}
+
 # --- Security Groups: Internet -> ALB -> ECS（参照連鎖のみ許可） ---
 resource "aws_security_group" "alb" {
   name_prefix = "${var.name}-alb-"
@@ -31,6 +36,17 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  count = local.enable_https ? 1 : 0
+
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS from internet"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
   cidr_ipv4         = "0.0.0.0/0"
 }
 
@@ -88,14 +104,85 @@ resource "aws_lb_target_group" "this" {
   }
 }
 
+# HTTPS 有効時は 443 へリダイレクト、無効時（ドメイン未指定の検証用）は直接転送
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
+    type             = local.enable_https ? "redirect" : "forward"
+    target_group_arn = local.enable_https ? null : aws_lb_target_group.this.arn
+
+    dynamic "redirect" {
+      for_each = local.enable_https ? [1] : []
+
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+}
+
+# --- HTTPS (ACM + Route53) ---
+resource "aws_acm_certificate" "this" {
+  count = local.enable_https ? 1 : 0
+
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# 証明書は単一ドメイン（SAN なし）なので検証レコードは1件。for_each のキーが apply 後決定になるのを避ける
+resource "aws_route53_record" "cert_validation" {
+  count = local.enable_https ? 1 : 0
+
+  zone_id         = var.route53_zone_id
+  name            = tolist(aws_acm_certificate.this[0].domain_validation_options)[0].resource_record_name
+  type            = tolist(aws_acm_certificate.this[0].domain_validation_options)[0].resource_record_type
+  records         = [tolist(aws_acm_certificate.this[0].domain_validation_options)[0].resource_record_value]
+  ttl             = 60
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "this" {
+  count = local.enable_https ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.this[0].arn
+  validation_record_fqdns = aws_route53_record.cert_validation[*].fqdn
+}
+
+resource "aws_lb_listener" "https" {
+  count = local.enable_https ? 1 : 0
+
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = aws_acm_certificate_validation.this[0].certificate_arn
+
+  default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.this.arn
+  }
+}
+
+resource "aws_route53_record" "app" {
+  count = local.enable_https ? 1 : 0
+
+  zone_id = var.route53_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.this.dns_name
+    zone_id                = aws_lb.this.zone_id
+    evaluate_target_health = true
   }
 }
 
@@ -206,5 +293,37 @@ resource "aws_ecs_service" "this" {
     rollback = true
   }
 
-  depends_on = [aws_lb_listener.http]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
+
+  # タスク数はオートスケールが管理する（Terraform とのフラッピング防止）
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+}
+
+# --- Auto Scaling (CPU target tracking) ---
+resource "aws_appautoscaling_target" "this" {
+  service_namespace  = "ecs"
+  scalable_dimension = "ecs:service:DesiredCount"
+  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.this.name}"
+  min_capacity       = var.desired_count
+  max_capacity       = var.max_capacity
+}
+
+resource "aws_appautoscaling_policy" "cpu" {
+  name               = "${var.name}-cpu"
+  policy_type        = "TargetTrackingScaling"
+  service_namespace  = aws_appautoscaling_target.this.service_namespace
+  scalable_dimension = aws_appautoscaling_target.this.scalable_dimension
+  resource_id        = aws_appautoscaling_target.this.resource_id
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = var.cpu_target_utilization
+    scale_out_cooldown = 60
+    scale_in_cooldown  = 300
+
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
 }

@@ -36,8 +36,11 @@ module "ecs" {
   cpu                 = var.task_cpu
   memory              = var.task_memory
   desired_count       = var.desired_count
+  max_capacity        = var.max_capacity
   log_retention_days  = var.log_retention_days
   deletion_protection = var.deletion_protection
+  domain_name         = var.domain_name
+  route53_zone_id     = var.route53_zone_id
 
   environment = {
     DB_HOST = module.rds.address
@@ -49,6 +52,15 @@ module "ecs" {
   secrets = {
     DB_CREDENTIALS = module.rds.master_user_secret_arn
   }
+}
+
+# 未完成機能と同様に enable_waf = false のままマージできる（トランクベース）
+module "waf" {
+  count  = var.enable_waf ? 1 : 0
+  source = "./modules/waf"
+
+  name    = local.name
+  alb_arn = module.ecs.alb_arn
 }
 
 module "rds" {

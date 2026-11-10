@@ -29,6 +29,11 @@ run "dev_single_nat" {
     condition     = length(aws_nat_gateway.this) == 1
     error_message = "single_nat_gateway=true では NAT Gateway は1つであること"
   }
+
+  assert {
+    condition     = aws_vpc_endpoint.s3.vpc_endpoint_type == "Gateway"
+    error_message = "S3 ゲートウェイエンドポイントが作成されること"
+  }
 }
 
 run "prod_nat_per_az" {
