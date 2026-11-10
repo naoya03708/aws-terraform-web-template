@@ -17,3 +17,7 @@ updates:
       - "/bootstrap/github-oidc"
     schedule:
       interval: weekly
+    # ルート・各モジュール・bootstrap のプロバイダ制約は揃える必要があるため1つの PR にまとめる
+    groups:
+      terraform-providers:
+        patterns: ["*"]

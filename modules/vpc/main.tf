@@ -113,7 +113,7 @@ resource "aws_route_table_association" "private" {
 # S3 ゲートウェイエンドポイント（無料）。ECR のイメージレイヤ取得が NAT を経由せず、NAT 通信料を削減する
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = aws_route_table.private[*].id
 
