@@ -1,0 +1,73 @@
+name: terraform-deploy
+
+# トランクベースのデプロイ:
+#   main へのマージ      -> dev へ自動 apply（リポジトリ変数 AUTO_DEPLOY_DEV=true の時のみ。誤課金防止）
+#   リリースタグ v*      -> prod へ apply（GitHub Environment "prod" の承認が必要）
+# 環境ごとのブランチは持たず、同じコミット（アーティファクト）を dev -> prod へ昇格させる。
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TG_NON_INTERACTIVE: "true"
+
+jobs:
+  dev:
+    if: github.ref_type == 'branch' && vars.AUTO_DEPLOY_DEV == 'true' && vars.AWS_APPLY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: dev
+    concurrency:
+      group: terraform-deploy-dev
+      cancel-in-progress: false
+    env:
+      ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-tools
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: terragrunt apply (dev)
+        run: terragrunt apply -auto-approve -input=false -lock-timeout=300s
+
+  prod:
+    if: github.ref_type == 'tag' && vars.AWS_APPLY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: prod # 必須レビュアーによる承認ゲート
+    concurrency:
+      group: terraform-deploy-prod
+      cancel-in-progress: false
+    env:
+      ENV: prod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # main に入っていないコミット（レビュー・CI を経ていないもの）は本番へ出さない
+      - name: Verify tag points to a commit on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - uses: ./.github/actions/setup-tools
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: terragrunt apply (prod)
+        run: terragrunt apply -auto-approve -input=false -lock-timeout=300s

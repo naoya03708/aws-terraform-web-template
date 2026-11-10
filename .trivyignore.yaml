@@ -1,0 +1,16 @@
+# 意図的に許容している指摘。理由を必ず記載し、解消できたら削除する。
+misconfigurations:
+  - id: AWS-0053
+    paths:
+      - "modules/ecs/main.tf"
+    statement: "Web アプリの入口となる ALB は公開が前提（背後の ECS/RDS はプライベートサブネット）。"
+
+  - id: AWS-0054
+    paths:
+      - "modules/ecs/main.tf"
+    statement: "ドメイン未指定の検証用構成では HTTP のみ。HTTPS 対応（ACM + 443 リスナー）は PR 2 で追加し、その時点でこの除外を削除する。"
+
+  - id: AWS-0104
+    paths:
+      - "modules/ecs/main.tf"
+    statement: "Fargate タスクは NAT 経由で ECR / Secrets Manager / CloudWatch Logs へ到達する必要があり、宛先 IP を限定できない。インバウンドは ALB の SG のみに限定済み。"
