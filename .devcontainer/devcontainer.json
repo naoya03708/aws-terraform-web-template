@@ -1,0 +1,31 @@
+{
+  "name": "aws-terraform-web-template",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.10",
+      "tflint": "latest",
+      "terragrunt": "latest"
+    },
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "remoteEnv": {
+    "AWS_PROFILE": "${localEnv:AWS_PROFILE}",
+    "AWS_REGION": "${localEnv:AWS_REGION}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "hashicorp.terraform",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "[terraform]": {
+          "editor.formatOnSave": true
+        }
+      }
+    }
+  },
+  "postCreateCommand": "git --version && gh --version | head -1 && aws --version && terraform version | head -1 && terragrunt --version && tflint --version"
+}

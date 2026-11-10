@@ -1,0 +1,110 @@
+name: terraform-ci
+
+on:
+  pull_request:
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+      - "**.hcl"
+      - ".github/workflows/terraform-ci.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: terraform-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.10.5"
+  TERRAGRUNT_VERSION: "0.77.22"
+  TFLINT_VERSION: "v0.55.1"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Install Terragrunt
+        run: |
+          curl -fsSL -o terragrunt \
+            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x terragrunt
+          sudo mv terragrunt /usr/local/bin/terragrunt
+
+      # AWS 認証は不要な静的チェックのみ実行する
+      - name: terraform fmt
+        id: fmt
+        continue-on-error: true
+        run: terraform fmt -check -recursive -diff
+
+      - name: terragrunt hcl fmt
+        id: hclfmt
+        continue-on-error: true
+        run: terragrunt hcl fmt --check
+
+      - name: terraform validate
+        id: validate
+        continue-on-error: true
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: tflint
+        id: tflint
+        continue-on-error: true
+        run: |
+          tflint --init
+          tflint --recursive --format compact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Comment on PR
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        env:
+          RESULTS: ${{ toJSON(steps) }}
+        with:
+          script: |
+            const steps = JSON.parse(process.env.RESULTS);
+            const rows = [
+              ['terraform fmt', steps.fmt.outcome],
+              ['terragrunt hcl fmt', steps.hclfmt.outcome],
+              ['terraform validate', steps.validate.outcome],
+              ['tflint', steps.tflint.outcome],
+            ];
+            const icon = (o) => (o === 'success' ? '✅' : '❌');
+            const marker = '<!-- terraform-ci -->';
+            const body = [
+              marker,
+              '### Terraform CI',
+              '| Check | Result |',
+              '| --- | --- |',
+              ...rows.map(([n, o]) => `| ${n} | ${icon(o)} ${o} |`),
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const prev = comments.find((c) => c.body && c.body.includes(marker));
+            if (prev) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: prev.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Fail if any check failed
+        if: steps.fmt.outcome != 'success' || steps.hclfmt.outcome != 'success' || steps.validate.outcome != 'success' || steps.tflint.outcome != 'success'
+        run: exit 1
