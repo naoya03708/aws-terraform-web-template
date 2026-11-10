@@ -3,6 +3,21 @@ output "alb_arn" {
   value       = aws_lb.this.arn
 }
 
+output "alb_arn_suffix" {
+  description = "ALB の ARN サフィックス（CloudWatch ディメンション用）"
+  value       = aws_lb.this.arn_suffix
+}
+
+output "target_group_arn_suffix" {
+  description = "ターゲットグループの ARN サフィックス（CloudWatch ディメンション用）"
+  value       = aws_lb_target_group.this.arn_suffix
+}
+
+output "service_name" {
+  description = "ECS サービス名"
+  value       = aws_ecs_service.this.name
+}
+
 output "alb_dns_name" {
   description = "ALB の DNS 名"
   value       = aws_lb.this.dns_name

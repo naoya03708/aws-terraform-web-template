@@ -34,7 +34,10 @@ flowchart LR
 ├── modules/
 │   ├── vpc/              # VPC / Subnet / IGW / NAT / Route Table
 │   ├── ecs/              # ALB / ECS Fargate / IAM 実行ロール / CloudWatch Logs
-│   └── rds/              # RDS PostgreSQL / Subnet Group / Security Group
+│   ├── rds/              # RDS PostgreSQL / Subnet Group / Security Group
+│   ├── waf/              # WAF（AWS マネージドルール）
+│   └── monitoring/       # SLO アラーム / SNS / ダッシュボード
+├── docs/slo.md           # SLO・アラーム設計と一次対応(runbook)
 ├── .devcontainer/        # terraform, terragrunt, tflint, aws cli, gh, git 入りの開発環境
 ├── tests/                # terraform test（モックプロバイダ）
 ├── bootstrap/github-oidc/ # GitHub Actions 用 OIDC / IAM ロール（初回のみ apply）
@@ -87,6 +90,18 @@ ENV=prod terragrunt plan
 
 - `domain_name` 未指定時は HTTP(80) のみです。公開する本番環境では必ずドメインを設定して HTTPS 化してください。
 - 既定のコンテナイメージは `public.ecr.aws/nginx/nginx:stable` です。`container_image` を変更してアプリに差し替えます。
+
+## 監視（SLO ベース）
+
+「ユーザーが困っているか」だけを鳴らす設計です。CPU・メモリなどの原因系メトリクスはダッシュボード表示のみで、アラームにしません（例外は RDS 空き容量のみ）。
+
+- **SLO（仮値）**: 可用性 99.5%（30日）/ 応答時間 p95 500ms 未満（`slo_availability_target` / `slo_latency_threshold_seconds`）
+- **可用性アラーム**: エラーバジェット消費率の multi-window multi-burn-rate。急速消費（1h・5m が 14.4 倍超）は page、緩やかな消費（6h・30m が 6 倍超）は ticket
+- **誤報対策**: 長窓・短窓の AND、最小リクエスト数ガード、無トラフィック時は正常扱い
+- **通知**: 緊急度別の SNS トピック（KMS 暗号化）。`alarm_email` でメール購読
+- **ダッシュボード**: 最上段に SLO 達成率・エラーバジェット残量、下段に原因調査用メトリクス
+
+SLI の定義、簡略化している点、アラームごとの一次対応は [docs/slo.md](docs/slo.md) を参照。
 
 ## CI/CD（トランクベース開発）
 

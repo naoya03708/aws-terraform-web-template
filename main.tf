@@ -63,6 +63,21 @@ module "waf" {
   alb_arn = module.ecs.alb_arn
 }
 
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  name                          = local.name
+  alb_arn_suffix                = module.ecs.alb_arn_suffix
+  target_group_arn_suffix       = module.ecs.target_group_arn_suffix
+  cluster_name                  = module.ecs.cluster_name
+  service_name                  = module.ecs.service_name
+  db_instance_id                = module.rds.identifier
+  db_allocated_storage_gib      = var.db_allocated_storage
+  slo_availability_target       = var.slo_availability_target
+  slo_latency_threshold_seconds = var.slo_latency_threshold_seconds
+  alarm_email                   = var.alarm_email
+}
+
 module "rds" {
   source = "./modules/rds"
 

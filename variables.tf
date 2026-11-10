@@ -125,6 +125,25 @@ variable "db_backup_retention_days" {
   type        = number
 }
 
+# --- 監視 (SLO) ---
+variable "slo_availability_target" {
+  description = "可用性 SLO（0.995 = 99.5%、30日間）。サンプルアプリ用の仮値"
+  type        = number
+  default     = 0.995
+}
+
+variable "slo_latency_threshold_seconds" {
+  description = "レイテンシ SLO: 応答時間 p95 の上限(秒)。サンプルアプリ用の仮値"
+  type        = number
+  default     = 0.5
+}
+
+variable "alarm_email" {
+  description = "アラーム通知先メールアドレス（null の場合は購読を作成しない）"
+  type        = string
+  default     = null
+}
+
 # --- 共通 ---
 variable "deletion_protection" {
   description = "ALB / RDS の削除保護（本番は true）"

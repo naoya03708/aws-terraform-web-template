@@ -20,3 +20,6 @@ enable_waf          = true
 # 本番は HTTPS を推奨。ドメインと Route53 ホストゾーンを用意して設定する
 # domain_name     = "app.example.com"
 # route53_zone_id = "Z0123456789ABC"
+
+# アラーム通知先（SNS メール購読。指定しない場合は購読を作成しない）
+# alarm_email = "you@example.com"
