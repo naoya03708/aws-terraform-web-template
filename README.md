@@ -36,7 +36,9 @@ flowchart LR
 │   ├── ecs/              # ALB / ECS Fargate / IAM 実行ロール / CloudWatch Logs
 │   └── rds/              # RDS PostgreSQL / Subnet Group / Security Group
 ├── .devcontainer/        # terraform, terragrunt, tflint, aws cli, gh, git 入りの開発環境
-└── .github/workflows/    # PR 時の静的チェック
+├── tests/                # terraform test（モックプロバイダ）
+├── bootstrap/github-oidc/ # GitHub Actions 用 OIDC / IAM ロール（初回のみ apply）
+└── .github/              # workflows / dependabot / 共通セットアップ action
 ```
 
 ## 設計思想
@@ -77,18 +79,46 @@ ENV=prod terragrunt plan
 - ALB は HTTP(80) のみです。本番利用時は ACM 証明書 + HTTPS リスナーを追加してください。
 - 既定のコンテナイメージは `public.ecr.aws/nginx/nginx:stable` です。`container_image` を変更してアプリに差し替えます。
 
-## CI/CD
+## CI/CD（トランクベース開発）
 
-`.github/workflows/terraform-ci.yml` が Pull Request 時に以下を実行します（AWS 認証不要）。
+長命ブランチ（develop・環境別ブランチ）は持たず、`main` が常にデプロイ可能な唯一の幹です。作業は短命ブランチ（1〜2日）で行い、PR → squash merge で `main` に取り込みます。未完成の機能は変数（例: `enable_waf = false`）で無効のままマージします。
 
-| チェック | 内容 |
-| --- | --- |
-| `terraform fmt -check -recursive` | フォーマット |
-| `terragrunt hcl fmt --check` | `terragrunt.hcl` のフォーマット |
-| `terraform validate` | 構文・整合性（`init -backend=false`） |
-| `tflint` | 静的解析（terraform / aws ルールセット） |
+```mermaid
+flowchart LR
+  pr[短命ブランチ / PR] -->|terraform-ci + plan| main[main]
+  main -->|自動 apply| dev[dev]
+  main -->|タグ vX.Y.Z + 承認| prod[prod]
+```
 
-結果は PR コメントに集約表示され（再実行時は同コメントを更新）、いずれか失敗すると CI が失敗します。
+| ワークフロー | トリガー | 内容 |
+| --- | --- | --- |
+| `terraform-ci` | PR / main push | fmt・hcl fmt・validate・`terraform test`・tflint・trivy（AWS 認証不要）。結果は PR コメントに集約 |
+| `terraform-plan` | PR | OIDC で dev / prod の `terragrunt plan` を実行し PR コメントに表示（読み取り専用ロール） |
+| `terraform-deploy` | main push / タグ `v*` | main → dev へ apply（`AUTO_DEPLOY_DEV=true` の時のみ）、タグ → prod へ apply（Environment の承認が必要。タグが main 上のコミットであることも検証） |
+
+環境ごとにブランチを切らず、**同じコミットを dev → prod へ昇格**させます。AWS の長期アクセスキーは使わず、GitHub OIDC で一時認証情報を取得します。
+
+### CI/CD のセットアップ（初回のみ）
+
+1. 管理者権限で OIDC 連携用の IAM を作成（state はローカル）。
+   ```bash
+   cd bootstrap/github-oidc && terraform init && terraform apply
+   ```
+2. 出力されたロール ARN をリポジトリ変数に登録。
+   ```bash
+   gh variable set AWS_PLAN_ROLE_ARN  --body "<plan_role_arn>"
+   gh variable set AWS_APPLY_ROLE_ARN --body "<apply_role_arn>"
+   gh variable set AWS_REGION         --body "ap-northeast-1"
+   gh variable set AUTO_DEPLOY_DEV    --body "true"   # dev の自動デプロイを有効化する場合のみ
+   ```
+3. GitHub の Environments に `dev` / `prod` を作成。`prod` には必須レビュアーと「タグ `v*` のみ」のデプロイ制限を設定。
+4. `main` のブランチ保護（PR 必須・`terraform-ci` 必須・linear history）と squash merge のみを有効化。
+
+> 変数が未設定の間、plan / deploy ワークフローはスキップされます。apply ロールは検証用に `AdministratorAccess` ですが、引き受け可能なのは GitHub Environment 経由のジョブのみです。
+
+### セキュリティスキャンの除外
+
+`trivy` の指摘のうち意図的に許容しているものは `.trivyignore.yaml` に理由付きで記載しています（ALB の公開、HTTP リスナー、ECS の外向き通信）。
 
 ## 今後の予定
 

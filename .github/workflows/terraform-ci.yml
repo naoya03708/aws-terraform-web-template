@@ -1,12 +1,10 @@
 name: terraform-ci
 
+# トランクベース: PR（短命ブランチ→main）と main への push の両方で静的チェックを実行する。
 on:
   pull_request:
-    paths:
-      - "**.tf"
-      - "**.tfvars"
-      - "**.hcl"
-      - ".github/workflows/terraform-ci.yml"
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,8 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TERRAFORM_VERSION: "1.10.5"
-  TERRAGRUNT_VERSION: "0.77.22"
   TFLINT_VERSION: "v0.55.1"
 
 jobs:
@@ -28,21 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TERRAFORM_VERSION }}
-          terraform_wrapper: false
+      - uses: ./.github/actions/setup-tools
 
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: ${{ env.TFLINT_VERSION }}
-
-      - name: Install Terragrunt
-        run: |
-          curl -fsSL -o terragrunt \
-            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
-          chmod +x terragrunt
-          sudo mv terragrunt /usr/local/bin/terragrunt
 
       # AWS 認証は不要な静的チェックのみ実行する
       - name: terraform fmt
@@ -61,6 +47,13 @@ jobs:
         run: |
           terraform init -backend=false -input=false
           terraform validate
+          terraform -chdir=bootstrap/github-oidc init -backend=false -input=false
+          terraform -chdir=bootstrap/github-oidc validate
+
+      - name: terraform test
+        id: test
+        continue-on-error: true
+        run: terraform test
 
       - name: tflint
         id: tflint
@@ -71,8 +64,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      - name: trivy (misconfiguration)
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          trivyignores: .trivyignore.yaml
+
       - name: Comment on PR
-        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         env:
           RESULTS: ${{ toJSON(steps) }}
@@ -83,7 +87,9 @@ jobs:
               ['terraform fmt', steps.fmt.outcome],
               ['terragrunt hcl fmt', steps.hclfmt.outcome],
               ['terraform validate', steps.validate.outcome],
+              ['terraform test', steps.test.outcome],
               ['tflint', steps.tflint.outcome],
+              ['trivy', steps.trivy.outcome],
             ];
             const icon = (o) => (o === 'success' ? '✅' : '❌');
             const marker = '<!-- terraform-ci -->';
@@ -106,5 +112,5 @@ jobs:
             }
 
       - name: Fail if any check failed
-        if: steps.fmt.outcome != 'success' || steps.hclfmt.outcome != 'success' || steps.validate.outcome != 'success' || steps.tflint.outcome != 'success'
+        if: steps.fmt.outcome != 'success' || steps.hclfmt.outcome != 'success' || steps.validate.outcome != 'success' || steps.test.outcome != 'success' || steps.tflint.outcome != 'success' || steps.trivy.outcome != 'success'
         run: exit 1

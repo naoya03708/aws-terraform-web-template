@@ -1,0 +1,21 @@
+name: setup-tools
+description: Install the pinned Terraform and Terragrunt versions used by all workflows
+
+runs:
+  using: composite
+  steps:
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.10.5"
+        terraform_wrapper: false
+
+    - name: Install Terragrunt
+      shell: bash
+      env:
+        TERRAGRUNT_VERSION: "0.77.22"
+      run: |
+        curl -fsSL -o terragrunt \
+          "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+        chmod +x terragrunt
+        sudo mv terragrunt /usr/local/bin/terragrunt
+        terragrunt --version
