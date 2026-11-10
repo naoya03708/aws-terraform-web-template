@@ -93,3 +93,7 @@ ENV=prod terragrunt plan
 ## 今後の予定
 
 - GCP 版（`gcp-terraform-web-template`: Cloud Run / Cloud SQL）の追加
+
+## ライセンス
+
+MIT（予定）

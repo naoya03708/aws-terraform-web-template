@@ -44,3 +44,4 @@ inputs = {
   env     = local.env
   region  = local.region
 }
+# CI check
