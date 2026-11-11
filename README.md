@@ -162,6 +162,18 @@ flowchart LR
 
 `trivy` の指摘のうち意図的に許容しているものは `.trivyignore.yaml` に理由付きで記載しています（ALB の公開、HTTP リスナー、ECS の外向き通信）。
 
+## 検証状況
+
+| 区分 | 内容 | 状況 |
+| --- | --- | --- |
+| 静的チェック | fmt / validate / tflint / trivy（CI で毎回実行） | 実施・成功 |
+| テスト | `terraform test` 16件（モックプロバイダ。vpc / ecs / rds / monitoring） | 実施・成功 |
+| ワークフロー | `terraform-ci` の PR 上での動作 | 実施・成功 |
+| AWS への実適用 | `terragrunt apply`、OIDC 連携、plan / deploy ワークフロー、SLO アラームの発火、ダッシュボード表示 | **未実施**（費用の都合） |
+
+実環境での挙動（ACM / WAF / オートスケールの実動作、バーンレートアラームの評価、ダッシュボードの30日表示など）は、ローカルと CI での検証までで、実際の AWS 環境では確認していません。コスト試算（[docs/cost.md](docs/cost.md)）も単価表からの概算です。
+
 ## 今後の予定
 
-- GCP 版（`gcp-terraform-web-template`: Cloud Run / Cloud SQL）の追加
+- AWS 実環境での検証と、実績に基づくコスト・SLO の見直し
+- GCP 版（別リポジトリ `gcp-terraform-web-template`: Cloud Run / Cloud SQL）の追加
