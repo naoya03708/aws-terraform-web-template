@@ -76,9 +76,10 @@ flowchart LR
 VS Code で開き、Dev Containers で「Reopen in Container」。terraform / terragrunt / tflint / aws cli / gh / git が利用できます。
 
 ```bash
-gh auth login          # 必要に応じて
-aws configure sso      # もしくは aws configure
+gh auth login                                  # 必要に応じて
+aws login --remote --profile <your-profile>    # 表示された URL をブラウザで開いて許可し、コードを貼り付ける（短期認証情報）
 export AWS_PROFILE=<your-profile>
+export AWS_REGION=ap-northeast-1               # 省略時は ap-northeast-1
 ```
 
 ### 2. 実行

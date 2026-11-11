@@ -7,8 +7,9 @@
 # リージョンは AWS_REGION で上書き可能（既定: ap-northeast-1）。
 
 locals {
-  env        = get_env("ENV", "dev")
-  region     = get_env("AWS_REGION", "ap-northeast-1")
+  # 環境変数が未設定でも空文字でも既定値になるよう coalesce を使う
+  env        = coalesce(get_env("ENV", ""), "dev")
+  region     = coalesce(get_env("AWS_REGION", ""), "ap-northeast-1")
   project    = "aws-tf-web"
   account_id = get_aws_account_id()
 }
