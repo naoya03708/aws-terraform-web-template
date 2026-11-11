@@ -1,6 +1,24 @@
 # aws-terraform-web-template
 
+[![terraform-ci](https://github.com/naoya03708/aws-terraform-web-template/actions/workflows/terraform-ci.yml/badge.svg)](https://github.com/naoya03708/aws-terraform-web-template/actions/workflows/terraform-ci.yml)
+
 AWS 上の標準的な Web アプリ基盤（VPC / ALB / ECS Fargate / RDS PostgreSQL）を、Terraform + Terragrunt でコード化したテンプレートです。dev / prod の環境差分は tfvars だけで表現し、state 用 S3 バケットの事前作成は不要です。
+
+## 特徴
+
+- **Terraform + Terragrunt**: state 用 S3 バケットを自動作成。ロックは S3 ネイティブ。環境差分は tfvars のみ
+- **トランクベース開発の CI/CD**: PR で静的チェックと plan、main で dev へ自動 apply、タグ + 承認で prod へ昇格。AWS 認証は GitHub OIDC（長期キーなし）
+- **SLO ベースの監視**: エラーバジェット消費率アラーム、緊急度別通知、SLO ダッシュボード
+- **本番向け機能をフラグで切替**: HTTPS（ACM）、オートスケール、WAF
+- **品質ゲート**: fmt / validate / tflint / trivy / `terraform test`（モックプロバイダ）
+
+## ドキュメント
+
+| | |
+| --- | --- |
+| [docs/adr/](docs/adr/) | 設計判断の記録（state 管理、ブランチ戦略、SLO アラーム、NAT、Secrets、OIDC） |
+| [docs/slo.md](docs/slo.md) | SLI/SLO の定義とアラームごとの一次対応（runbook） |
+| [docs/cost.md](docs/cost.md) | dev / prod の月額概算とコスト削減の余地 |
 
 ## 構成図
 
