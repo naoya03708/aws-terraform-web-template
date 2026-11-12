@@ -5,14 +5,10 @@
     "ghcr.io/devcontainers/features/terraform:1": {
       "version": "1.10",
       "tflint": "latest",
-      "terragrunt": "latest"
+      "terragrunt": "0.77.22"
     },
     "ghcr.io/devcontainers/features/aws-cli:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
-  },
-  "remoteEnv": {
-    "AWS_PROFILE": "${localEnv:AWS_PROFILE}",
-    "AWS_REGION": "${localEnv:AWS_REGION}"
   },
   "customizations": {
     "vscode": {
