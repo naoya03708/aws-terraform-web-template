@@ -23,7 +23,7 @@ locals {
       type = "metric", x = 0, y = 2, width = 8, height = 5
       properties = {
         title = "可用性（過去30日）", view = "singleValue", region = local.region
-        start = "-P30D", end = "P0D", setPeriodToTimeRange = true
+        start = "-P30D", end = "P0D", period = 2592000
         metrics = [
           local.m_requests, local.m_target5x, local.m_elb5x,
           [{ expression = "100 * (1 - ${local.err_ratio})", label = "Availability % (SLO ${var.slo_availability_target * 100}%)", id = "avail" }],
@@ -34,7 +34,7 @@ locals {
       type = "metric", x = 8, y = 2, width = 8, height = 5
       properties = {
         title = "エラーバジェット残量（過去30日）", view = "singleValue", region = local.region
-        start = "-P30D", end = "P0D", setPeriodToTimeRange = true
+        start = "-P30D", end = "P0D", period = 2592000
         metrics = [
           local.m_requests, local.m_target5x, local.m_elb5x,
           [{ expression = "100 * (1 - (${local.err_ratio}) / ${local.budget})", label = "Error budget remaining %", id = "budget" }],
