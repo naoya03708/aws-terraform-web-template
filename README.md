@@ -163,6 +163,32 @@ flowchart LR
 
 `trivy` の指摘のうち意図的に許容しているものは `.trivyignore.yaml` に理由付きで記載しています（ALB の公開、HTTP リスナー、ECS の外向き通信）。
 
+## 検証状況
+
+AWS の実環境（dev、`ap-southeast-2`）で `terragrunt apply` → 動作確認 → `terragrunt destroy` を1回実施しました。
+
+| 区分 | 内容 | 状況 |
+| --- | --- | --- |
+| 静的チェック・テスト | fmt / validate / tflint / trivy、`terraform test` 16件 | CI で毎回実施・成功 |
+| 実環境への適用 | dev を 51 リソース作成（VPC・NAT・ALB・ECS・RDS・監視）、ALB が HTTP 200 を返すこと、ECS が steady state になること | 実施・成功 |
+| SLO アラーム | ECS を 0 台にして ALB に 503 を返させ、バーンレートの基礎アラーム4つと複合アラーム2つが `ALARM` になること。レイテンシのアラームは `OK` のまま | 実施・成功 |
+| ダッシュボード | 実機で不具合を発見し修正（下記） | 実施・修正済み |
+| 後片付け | `terragrunt destroy` で 51 リソースを削除。NAT・ALB・RDS・EIP・ECS・WAF・Secrets・ダッシュボード・アラームが残っていないことを CLI で確認 | 実施・成功 |
+| 未検証 | GitHub OIDC 連携（`bootstrap/github-oidc`）と plan / deploy ワークフロー、HTTPS（ACM + Route53）、WAF（dev は無効）、オートスケールの実際の増減、prod 環境、SNS のメール通知、アプリ自身が返す 5xx（`HTTPCode_Target_5XX_Count`） | **未実施** |
+
+擬似障害は「ターゲット 0 台で ALB 自身が返す 503（`HTTPCode_ELB_5XX_Count`）」で起こしています。アプリが返す 5xx は検証していません。
+
+### 実機で見つかった不具合
+
+ダッシュボードの「可用性（過去30日）」「エラーバジェット残量」が、障害中も `100` を表示していました。式とメトリクスは正しく（30日で評価すると 37.5%）、タイルに `period` を明示していなかったため、最後の 5 分の点（リクエスト 0 件 → 100%）だけが表示されていたのが原因です。`period` を 30 日に指定して修正し、可用性 38.4%・エラーバジェット残量 −12.2K と、障害が反映されることを確認しました。ユニットテストと CI では検出できず、実機で動かして初めて分かった不具合です。
+
+| ダッシュボード（修正後） | 複合アラーム（緊急） | 複合アラーム（チケット） |
+| --- | --- | --- |
+| ![SLO ダッシュボード](docs/images/dashboard-slo.png) | ![fast-burn](docs/images/alarm-availability-fast-burn.png) | ![slow-burn](docs/images/alarm-availability-slow-burn.png) |
+
+アカウント ID は画像から伏せています。緊急アラームの画像は、撮影時点で復旧して `OK` に戻っていますが、タイムラインに発火した期間が写っています。
+
 ## 今後の予定
 
-- GCP 版（`gcp-terraform-web-template`: Cloud Run / Cloud SQL）の追加
+- 未検証の項目（OIDC 連携、plan / deploy ワークフロー、HTTPS、prod）の実機確認
+- GCP 版（別リポジトリ `gcp-terraform-web-template`: Cloud Run / Cloud SQL）の追加
