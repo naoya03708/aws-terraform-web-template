@@ -174,7 +174,9 @@ AWS の実環境（dev、`ap-southeast-2`）で `terragrunt apply` → 動作確
 | SLO アラーム | ECS を 0 台にして ALB に 503 を返させ、バーンレートの基礎アラーム4つと複合アラーム2つが `ALARM` になること。レイテンシのアラームは `OK` のまま | 実施・成功 |
 | ダッシュボード | 実機で不具合を発見し修正（下記） | 実施・修正済み |
 | 後片付け | `terragrunt destroy` で 51 リソースを削除。NAT・ALB・RDS・EIP・ECS・WAF・Secrets・ダッシュボード・アラームが残っていないことを CLI で確認 | 実施・成功 |
-| 未検証 | GitHub OIDC 連携（`bootstrap/github-oidc`）と plan / deploy ワークフロー、HTTPS（ACM + Route53）、WAF（dev は無効）、オートスケールの実際の増減、prod 環境、SNS のメール通知、アプリ自身が返す 5xx（`HTTPCode_Target_5XX_Count`） | **未実施** |
+| 未検証 | GitHub OIDC 連携（`bootstrap/github-oidc`）と plan / deploy ワークフロー（下記）、HTTPS（ACM + Route53）、WAF（dev は無効）、オートスケールの実際の増減、prod 環境、SNS のメール通知、アプリ自身が返す 5xx（`HTTPCode_Target_5XX_Count`） | **未実施** |
+
+OIDC 連携は、検証用アカウントが属する組織の SCP が `iam:CreateOpenIDConnectProvider` を明示的に拒否していたため、bootstrap の apply が `AccessDenied` で止まり、実環境では確認できていません（IAM リソースは何も作られていません）。`terraform plan` では 6 リソースの作成計画が出ること、plan 用ロールの state バケット指定が実際のバケットに一致することまでは確認しています。SCP を変更できる環境であれば、`terraform apply -var region=<state バケットのリージョン>` で作成できる想定です。
 
 擬似障害は「ターゲット 0 台で ALB 自身が返す 503（`HTTPCode_ELB_5XX_Count`）」で起こしています。アプリが返す 5xx は検証していません。
 
